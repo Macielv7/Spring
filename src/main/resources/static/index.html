@@ -144,11 +144,22 @@
       if (!idToDelete) return;
       try {
         const res = await fetch(`${apiBase}/${idToDelete}`, { method: 'DELETE' });
+        const text = await res.text();
+        console.log('DELETE', res.status, text);
         if (res.status === 204) {
-          showToast('Publicação removida.');
+          showToast('Removido');
           fetchList();
-        } else { showToast('Erro ao remover!'); }
-      } catch (e) { showToast('Erro ao conectar com a API.'); }
+        } else if (res.status === 401 || res.status === 403) {
+          showToast('Erro: não autorizado (' + res.status + '). Verifique autenticação/CSRF.');
+        } else if (res.status >= 400) {
+          showToast(text || ('Erro ao excluir (' + res.status + ')'));
+        } else {
+          showToast('Resposta inesperada: ' + res.status);
+        }
+      } catch (e) {
+        console.error(e);
+        showToast('Erro ao conectar');
+      }
       idToDelete = null; modal.style.display = 'none';
     }
 
