@@ -40,12 +40,6 @@ public class PublicacaoRestController {
         return service.findAll();
     }
 
-    @GetMapping("/titulo")
-    public Publicacao findByTituloRequestParam(
-        @RequestParam(value = "titulo") String titulo) {
-        return service.findByTitulo(titulo);
-    }
-
     @GetMapping("/{id}")
     public Publicacao findById(@PathVariable("id") Long id) {
         Publicacao resultado = service.findById(id);

@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 
-public class Publicacao { // POJO
+public class Publicacao { 
 
     @NotNull
     private Long id;
@@ -39,7 +39,7 @@ public class Publicacao { // POJO
         this.texto = texto;
         this.autor = autor;
         this.dataPublicacao = dataPublicacao;
-        this.publicado = !dataPublicacao.isAfter(LocalDate.now()); // regra automática
+        this.publicado = !dataPublicacao.isAfter(LocalDate.now()); 
     }
 
     public Long getId() {
