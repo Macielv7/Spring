@@ -1,36 +1,57 @@
 <!doctype html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Blog - Publicações</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <style id="custom-style">
+  </style>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./script.js">
 </head>
+
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="title">Publicações do Blog</div>
-      <button class="btn" id="btn-new">Nova publicação</button>
-    </div>
+  <div class="app-container">
+    <header class="app-header">
+      <h1 class="header-title">Publicações do Blog</h1>
+      <button class="btn btn-primary" id="btn-new">Nova publicação</button>
+    </header>
 
-    <div id="list" class="grid"></div>
+    <section id="list" class="post-grid"></section>
 
-    <div id="form" class="form" style="display:none">
-      <h3 id="form-title">Nova publicação</h3>
-      <div class="row"><input type="text" id="titulo" placeholder="Título"></div>
-      <div class="row"><textarea id="texto" placeholder="Texto (mínimo 10 caracteres)"></textarea></div>
-      <div class="row"><input type="text" id="autor" placeholder="Autor"></div>
-      <div class="row"><input type="datetime-local" id="dataPublicacao"></div>
-      <div class="row">
-        <button class="btn" id="btn-save">Salvar</button>
-        <button class="btn secondary" id="btn-cancel">Cancelar</button>
+    <section id="form" class="form-card" style="display:none">
+      <h2 id="form-title" class="form-title">Nova publicação</h2>
+      <div class="form-group">
+        <input type="text" id="titulo" placeholder="Título da Publicação" class="form-input">
       </div>
-      <div class="footer-note">A publicação com data futura será marcada como não publicada.</div>
+      <div class="form-group">
+        <textarea id="texto" placeholder="Texto (mínimo 10 caracteres)" class="form-textarea"></textarea>
+      </div>
+      <div class="form-group-inline">
+        <input type="text" id="autor" placeholder="Autor" class="form-input author-input">
+        <input type="datetime-local" id="dataPublicacao" class="form-input date-input">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-success" id="btn-save">Salvar</button>
+        <button class="btn btn-secondary" id="btn-cancel">Cancelar</button>
+      </div>
+      <p class="form-note">A publicação com data futura será marcada como não publicada.</p>
+    </section>
+
+    <div class="modal-backdrop" id="modal">
+      <div class="modal-content">
+        <h4 class="modal-title">Confirmar exclusão</h4>
+        <p>Tem certeza que deseja excluir esta publicação?</p>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="modal-cancel">Não</button>
+          <button class="btn btn-danger" id="modal-confirm">Sim, excluir</button>
+        </div>
+      </div>
     </div>
 
+    <div class="toast-message" id="toast"></div>
   </div>
-
-  <div class="toast" id="toast"></div>
 
   <script>
     const apiBase = '/publicacoes';
@@ -40,58 +61,99 @@
     const btnCancel = document.getElementById('btn-cancel');
     const btnSave = document.getElementById('btn-save');
     const toast = document.getElementById('toast');
+    const modal = document.getElementById('modal');
+    const modalCancel = document.getElementById('modal-cancel');
+    const modalConfirm = document.getElementById('modal-confirm');
 
     let editingId = null;
+    let idToDelete = null;
 
-    function showToast(msg){ toast.textContent = msg; toast.style.display='block'; setTimeout(()=>toast.style.display='none',3000); }
+    function showToast(msg) { toast.textContent = msg; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 3000); }
 
-    async function fetchList(){
+    async function fetchList() {
       const res = await fetch(apiBase);
       const items = await res.json();
       listEl.innerHTML = '';
-      items.forEach(p=>{
-        const card = document.createElement('div'); card.className='card';
-        card.innerHTML = `<h3>${p.titulo}</h3><p>${p.texto.substring(0,150)}${p.texto.length>150?'...':''}</p><div class="meta">By ${p.autor} • ${new Date(p.dataPublicacao).toLocaleString()} <strong>${p.dataPublicacao? 'Publicado':'Não publicado'}</strong></div>`;
-        const actions = document.createElement('div'); actions.className='actions';
-        const btnEdit = document.createElement('button'); btnEdit.className='action'; btnEdit.textContent='Editar'; btnEdit.onclick = ()=>openForm(p);
-        const btnDel = document.createElement('button'); btnDel.className='action delete'; btnDel.textContent='Excluir'; btnDel.onclick = ()=>remove(p.id);
+      items.forEach(p => {
+        const card = document.createElement('div'); card.className = 'post-card';
+        const pubDate = p.dataPublicacao ? new Date(p.dataPublicacao) : null;
+        const published = pubDate && pubDate <= new Date();
+        const statusClass = published ? 'status-published' : 'status-pending';
+        const statusText = published ? 'Publicado' : 'Ainda não publicado';
+        const dateStr = pubDate ? pubDate.toLocaleString('pt-BR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        card.innerHTML = `<h3 class="post-title">${p.titulo}</h3><p class="post-excerpt">${p.texto.substring(0, 150)}${p.texto.length > 150 ? '...' : ''}</p><div class="post-meta"><span class="meta-author">Por **${p.autor}**</span> • <span class="meta-date">${dateStr}</span> <span class="post-status ${statusClass}">(${statusText})</span></div>`;
+        const actions = document.createElement('div'); actions.className = 'card-actions';
+        const btnEdit = document.createElement('button'); btnEdit.className = 'action-btn action-edit'; btnEdit.textContent = '✏️ Editar'; btnEdit.onclick = () => openForm(p);
+        const btnDel = document.createElement('button'); btnDel.className = 'action-btn action-delete'; btnDel.textContent = '🗑️ Excluir'; btnDel.onclick = () => remove(p.id);
         actions.appendChild(btnEdit); actions.appendChild(btnDel); card.appendChild(actions); listEl.appendChild(card);
       });
     }
 
-    function openForm(p){
-      formEl.style.display='block';
-      editingId = p?.id||null;
-      document.getElementById('form-title').textContent = editingId? 'Editar publicação' : 'Nova publicação';
-      document.getElementById('titulo').value = p?.titulo||'';
-      document.getElementById('texto').value = p?.texto||'';
-      document.getElementById('autor').value = p?.autor||'';
-      if(p?.dataPublicacao) document.getElementById('dataPublicacao').value = new Date(p.dataPublicacao).toISOString().slice(0,16);
+    function openForm(p) {
+      listEl.style.display = 'none';
+      btnNew.style.display = 'none';
+      formEl.style.display = 'block';
+      editingId = p?.id || null;
+      document.getElementById('form-title').textContent = editingId ? 'Editar publicação' : 'Nova publicação';
+      document.getElementById('titulo').value = p?.titulo || '';
+      document.getElementById('texto').value = p?.texto || '';
+      document.getElementById('autor').value = p?.autor || '';
+      document.getElementById('dataPublicacao').value = p?.dataPublicacao ? new Date(p.dataPublicacao).toISOString().slice(0, 16) : '';
     }
 
-    btnNew.onclick = ()=>openForm();
-    btnCancel.onclick = ()=>{ formEl.style.display='none'; editingId=null; };
+    btnNew.onclick = () => openForm();
+    btnCancel.onclick = () => {
+      formEl.style.display = 'none';
+      listEl.style.display = 'grid';
+      btnNew.style.display = 'inline-block';
+      editingId = null;
+    };
 
-    btnSave.onclick = async ()=>{
+    btnSave.onclick = async () => {
       const titulo = document.getElementById('titulo').value.trim();
       const texto = document.getElementById('texto').value.trim();
       const autor = document.getElementById('autor').value.trim();
       const dataPublicacao = document.getElementById('dataPublicacao').value;
-      if(!titulo||!texto||!autor||!dataPublicacao){ showToast('Preencha todos os campos'); return; }
-      if(texto.length<10){ showToast('Texto deve ter no mínimo 10 caracteres'); return; }
-      const payload = {titulo, texto, autor, dataPublicacao};
-      try{
-        const method = editingId? 'PUT' : 'POST';
-        const url = editingId? `${apiBase}/${editingId}` : apiBase;
-        const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-        if(res.ok){ showToast('Salvo'); formEl.style.display='none'; editingId=null; fetchList(); }
-        else{ const err = await res.text(); showToast(err||'Erro'); }
-      }catch(e){ showToast('Erro ao conectar'); }
+      if (!titulo || !texto || !autor || !dataPublicacao) { showToast('Preencha todos os campos'); return; }
+      if (texto.length < 10) { showToast('Texto deve ter no mínimo 10 caracteres'); return; }
+      const payload = { titulo, texto, autor, dataPublicacao };
+      try {
+        const method = editingId ? 'PUT' : 'POST';
+        const url = editingId ? `${apiBase}/${editingId}` : apiBase;
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) {
+          showToast('Salvo com sucesso!');
+          formEl.style.display = 'none';
+          listEl.style.display = 'grid';
+          btnNew.style.display = 'inline-block';
+          editingId = null;
+          fetchList();
+        }
+        else { const err = await res.text(); showToast(err || 'Erro ao salvar!'); }
+      } catch (e) { showToast('Erro ao conectar com a API.'); }
     }
 
-    async function remove(id){ if(!confirm('Excluir?')) return; const res = await fetch(`${apiBase}/${id}`, {method:'DELETE'}); if(res.status===204){ showToast('Removido'); fetchList(); } else { showToast('Erro'); }}
+    async function remove(id) {
+      idToDelete = id;
+      modal.style.display = 'flex';
+    }
+
+    modalCancel.onclick = () => { idToDelete = null; modal.style.display = 'none'; };
+
+    modalConfirm.onclick = async () => {
+      if (!idToDelete) return;
+      try {
+        const res = await fetch(`${apiBase}/${idToDelete}`, { method: 'DELETE' });
+        if (res.status === 204) {
+          showToast('Publicação removida.');
+          fetchList();
+        } else { showToast('Erro ao remover!'); }
+      } catch (e) { showToast('Erro ao conectar com a API.'); }
+      idToDelete = null; modal.style.display = 'none';
+    }
 
     fetchList();
   </script>
 </body>
+
 </html>

@@ -1,0 +1,99 @@
+const apiBase = '/publicacoes';
+const listEl = document.getElementById('list');
+const formEl = document.getElementById('form');
+const btnNew = document.getElementById('btn-new');
+const btnCancel = document.getElementById('btn-cancel');
+const btnSave = document.getElementById('btn-save');
+const toast = document.getElementById('toast');
+const modal = document.getElementById('modal');
+const modalCancel = document.getElementById('modal-cancel');
+const modalConfirm = document.getElementById('modal-confirm');
+
+let editingId = null;
+let idToDelete = null;
+
+function showToast(msg) { toast.textContent = msg; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 3000); }
+
+async function fetchList() {
+    const res = await fetch(apiBase);
+    const items = await res.json();
+    listEl.innerHTML = '';
+    items.forEach(p => {
+        const card = document.createElement('div'); card.className = 'post-card';
+        const pubDate = p.dataPublicacao ? new Date(p.dataPublicacao) : null;
+        const published = pubDate && pubDate <= new Date();
+        const statusClass = published ? 'status-published' : 'status-pending';
+        const statusText = published ? 'Publicado' : 'Ainda não publicado';
+        const dateStr = pubDate ? pubDate.toLocaleString('pt-BR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        card.innerHTML = `<h3 class="post-title">${p.titulo}</h3><p class="post-excerpt">${p.texto.substring(0, 150)}${p.texto.length > 150 ? '...' : ''}</p><div class="post-meta"><span class="meta-author">Por **${p.autor}**</span> • <span class="meta-date">${dateStr}</span> <span class="post-status ${statusClass}">(${statusText})</span></div>`;
+        const actions = document.createElement('div'); actions.className = 'card-actions';
+        const btnEdit = document.createElement('button'); btnEdit.className = 'action-btn action-edit'; btnEdit.textContent = '✏️ Editar'; btnEdit.onclick = () => openForm(p);
+        const btnDel = document.createElement('button'); btnDel.className = 'action-btn action-delete'; btnDel.textContent = '🗑️ Excluir'; btnDel.onclick = () => remove(p.id);
+        actions.appendChild(btnEdit); actions.appendChild(btnDel); card.appendChild(actions); listEl.appendChild(card);
+    });
+}
+
+function openForm(p) {
+    listEl.style.display = 'none'; // Esconder a lista ao abrir o form
+    btnNew.style.display = 'none'; // Esconder o botão de nova publicação
+    formEl.style.display = 'block';
+    editingId = p?.id || null;
+    document.getElementById('form-title').textContent = editingId ? '📝 Editar publicação' : '✨ Nova publicação';
+    document.getElementById('titulo').value = p?.titulo || '';
+    document.getElementById('texto').value = p?.texto || '';
+    document.getElementById('autor').value = p?.autor || '';
+    document.getElementById('dataPublicacao').value = p?.dataPublicacao ? new Date(p.dataPublicacao).toISOString().slice(0, 16) : '';
+}
+
+btnNew.onclick = () => openForm();
+btnCancel.onclick = () => {
+    formEl.style.display = 'none';
+    listEl.style.display = 'grid'; // Mostrar a lista ao cancelar
+    btnNew.style.display = 'inline-block'; // Mostrar o botão de nova publicação
+    editingId = null;
+};
+
+btnSave.onclick = async () => {
+    const titulo = document.getElementById('titulo').value.trim();
+    const texto = document.getElementById('texto').value.trim();
+    const autor = document.getElementById('autor').value.trim();
+    const dataPublicacao = document.getElementById('dataPublicacao').value;
+    if (!titulo || !texto || !autor || !dataPublicacao) { showToast('Preencha todos os campos'); return; }
+    if (texto.length < 10) { showToast('Texto deve ter no mínimo 10 caracteres'); return; }
+    const payload = { titulo, texto, autor, dataPublicacao };
+    try {
+        const method = editingId ? 'PUT' : 'POST';
+        const url = editingId ? `${apiBase}/${editingId}` : apiBase;
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) {
+            showToast('✅ Salvo com sucesso!');
+            formEl.style.display = 'none';
+            listEl.style.display = 'grid';
+            btnNew.style.display = 'inline-block';
+            editingId = null;
+            fetchList();
+        }
+        else { const err = await res.text(); showToast(err || '❌ Erro ao salvar!'); }
+    } catch (e) { showToast('⚠️ Erro ao conectar com a API.'); }
+}
+
+async function remove(id) {
+    idToDelete = id;
+    modal.style.display = 'flex';
+}
+
+modalCancel.onclick = () => { idToDelete = null; modal.style.display = 'none'; };
+
+modalConfirm.onclick = async () => {
+    if (!idToDelete) return;
+    try {
+        const res = await fetch(`${apiBase}/${idToDelete}`, { method: 'DELETE' });
+        if (res.status === 204) {
+            showToast('🗑️ Publicação removida.');
+            fetchList();
+        } else { showToast('❌ Erro ao remover!'); }
+    } catch (e) { showToast('⚠️ Erro ao conectar com a API.'); }
+    idToDelete = null; modal.style.display = 'none';
+}
+
+fetchList();
